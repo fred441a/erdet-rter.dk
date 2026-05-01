@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Peas Detector</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    img {
+      max-width: 300px;
+      margin-top: 20px;
+    }
+    #result {
+      font-size: 1.5em;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🫛 Is This Peas?</h1>
+  <input type="file" id="imageInput" accept="image/*">
+  <br>
+  <img id="preview" />
+  <div id="result"></div>
+
+  <script>
+    let model;
+
+    async function loadModel() {
+      model = await tf.loadGraphModel('model.json')
+      console.log("Model loaded");
+    }
+
+    loadModel();
+
+    const imageInput = document.getElementById("imageInput");
+    const preview = document.getElementById("preview");
+    const result = document.getElementById("result");
+
+    imageInput.addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function () {
+        preview.src = reader.result;
+      };
+
+      reader.readAsDataURL(file);
+
+      preview.onload = async function () {
+        result.innerText = "Analyzing...";
+		const tensor = tf.browser.fromPixels(preview);
+		const resizedTensor = tf.image.resizeBilinear(tensor,[256,256]);
+        const predictions = await model.execute(resizedTensor.expandDims(0));
+
+
+		const pea_propability = predictions.dataSync()[0];
+
+        // Look for "pea" or "peas" in predictions
+		const isPeas = pea_propability > 0.95;
+
+        if (isPeas) {
+          result.innerText = "✅ This looks like PEAS!";
+        } else {
+          result.innerText = "❌ This does NOT look like peas.";
+        }
+
+		predictions.dispose();
+      };
+    });
+  </script>
+
+</body>
+</html>
