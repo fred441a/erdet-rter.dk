@@ -25,7 +25,7 @@
 
   <h1>🫛 Is This Peas?</h1>
   <input type="file" id="imageInput" accept="image/*">
-  <br>
+  <p style="color: #888; font-size: 0.9em;">or paste an image with Ctrl+V / ⌘+V</p>
   <img id="preview" />
   <div id="result"></div>
 
@@ -43,36 +43,49 @@
     const preview = document.getElementById("preview");
     const result = document.getElementById("result");
 
-    imageInput.addEventListener("change", async (event) => {
-      const file = event.target.files[0];
-      const reader = new FileReader();
+    async function analyzeImage() {
+      result.innerText = "Analyzing...";
+      const tensor = tf.browser.fromPixels(preview);
+      const resizedTensor = tf.image.resizeBilinear(tensor, [256, 256]);
+      const predictions = await model.execute(resizedTensor.expandDims(0));
 
+      const pea_propability = predictions.dataSync()[0];
+
+      // Look for "pea" or "peas" in predictions
+      const isPeas = pea_propability > 0.95;
+
+      if (isPeas) {
+        result.innerText = "✅ This looks like PEAS!";
+      } else {
+        result.innerText = "❌ This does NOT look like peas.";
+      }
+
+      predictions.dispose();
+    }
+
+    function loadFileIntoPreview(file) {
+      if (!file || !file.type.startsWith("image/")) return;
+      const reader = new FileReader();
       reader.onload = function () {
         preview.src = reader.result;
       };
-
       reader.readAsDataURL(file);
+      preview.onload = analyzeImage;
+    }
 
-      preview.onload = async function () {
-        result.innerText = "Analyzing...";
-		const tensor = tf.browser.fromPixels(preview);
-		const resizedTensor = tf.image.resizeBilinear(tensor,[256,256]);
-        const predictions = await model.execute(resizedTensor.expandDims(0));
+    imageInput.addEventListener("change", async (event) => {
+      loadFileIntoPreview(event.target.files[0]);
+    });
 
-
-		const pea_propability = predictions.dataSync()[0];
-
-        // Look for "pea" or "peas" in predictions
-		const isPeas = pea_propability > 0.95;
-
-        if (isPeas) {
-          result.innerText = "✅ This looks like PEAS!";
-        } else {
-          result.innerText = "❌ This does NOT look like peas.";
+    document.addEventListener("paste", (event) => {
+      const items = event.clipboardData && event.clipboardData.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          loadFileIntoPreview(item.getAsFile());
+          break;
         }
-
-		predictions.dispose();
-      };
+      }
     });
   </script>
 
